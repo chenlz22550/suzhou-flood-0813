@@ -28,13 +28,17 @@ EVENTS = ROOT / "data" / "events.json"
 API_URL = "https://api.deepseek.com/chat/completions"
 DEFAULT_MODEL = "deepseek-v4-flash"
 
-PROMPT_TMPL = """你是气象灾情资料整理员。请整理 {start} 至 {end} 期间，中国全国范围内的暴雨、城市内涝、洪水、山洪、台风影响等公开报道过的事件。
+PROMPT_TMPL = """你是气象灾情资料整理员。请整理 {start} 至 {end} 期间，中国全国范围内公开报道过的灾情事件。
+
+重点（必须优先）：全国各地的城市积水、内涝、雨水/河水/海水倒灌、地下空间进水。这些要覆盖尽量多的省份与城市，作为全国标注点。
+次要：洪水、山洪、暴雨预警、台风登陆/影响。
 
 要求：
 1. 覆盖全国各主要受影响省份（如浙江、江苏、上海、安徽、福建、广东、广西、湖南、湖北、江西、河南、山东、四川、重庆、贵州、云南、陕西、山西、河北、北京、天津、辽宁、吉林、黑龙江、海南、台湾等），有报道才列，没有的省份不要编造。
-2. 每个事件给出：name（简短名称）、province、city、lat、lon（事件地点经纬度，精确到 0.05 度，务必真实合理）、date（YYYY-MM-DD，事件主要发生日）、kind（waterlog 内涝积水 / flood 洪水山洪 / warning 暴雨预警 / typhoon 台风相关）、severity（garage 地下车库进水 / backflow 倒灌 / knee 及膝积水 / road 道路积水 / alert 预警）、rain_mm（报道中的雨量毫米数，没有就给 null）、desc（30-60 字事实描述）、source（信息来源名称，如 央视/新华社/地方气象台/微博热搜）。
-3. 输出 15 到 30 个事件，按影响从大到小排序。
-4. 只输出一个 JSON 数组，不要任何解释文字、不要 markdown 代码围栏。"""
+2. 积水/倒灌类事件不少于输出总数的 60%。凡报道道路积水、小区内涝、下穿通道积水、地铁站进水、车库进水、管网/河道倒灌、海水倒灌，必须单独成点，不要只写「暴雨」概括。
+3. 每个事件给出：name（简短名称，优先含「积水」「倒灌」「内涝」「进水」等字样）、province、city、lat、lon（事件地点经纬度，精确到 0.05 度，务必真实合理）、date（YYYY-MM-DD，事件主要发生日）、kind（waterlog 内涝积水 / flood 洪水山洪 / warning 暴雨预警 / typhoon 台风相关）、severity（garage 地下车库进水 / backflow 倒灌 / knee 及膝积水 / road 道路积水 / alert 预警）、rain_mm（报道中的雨量毫米数，没有就给 null）、desc（30-60 字事实描述，写明积水深度或倒灌情形）、source（信息来源名称，如 央视/新华社/地方气象台/微博热搜）。
+4. 输出 20 到 40 个事件，按影响从大到小排序；积水/倒灌点分散到不同城市，避免同一城市堆过多雷同点。
+5. 只输出一个 JSON 数组，不要任何解释文字、不要 markdown 代码围栏。"""
 
 
 def parse_args() -> argparse.Namespace:
