@@ -1,0 +1,32 @@
+# 全国降雨场数据定时更新
+# 语法：https://docs.cnb.cool/zh/build/crontab.html
+# 前置：在 CNB 仓库「设置 → 密钥」中配置 DEEPSEEK_API_KEY（DeepSeek API Key）。
+# 每 6 小时跑一次：拉取 Open-Meteo 全国雨量格点 → DeepSeek 汇总全国舆情事件 → 有变更则提交回仓库。
+main:
+  "crontab: 17 */6 * * *":
+    - name: update-rain-and-events
+      stages:
+        - name: 拉取全国雨量格点（Open-Meteo）
+          image: python:3.12-slim
+          script: |
+            python3 tools/fetch_rain.py
+
+        - name: DeepSeek 汇总全国舆情事件
+          image: python:3.12-slim
+          script: |
+            python3 tools/update_events.py --start 2026-08-10 --end 2026-08-20
+          env:
+            DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+
+        - name: 提交数据变更
+          image: python:3.12-slim
+          script: |
+            if git diff --quiet data/ && git diff --cached --quiet data/; then
+              echo "数据无变化，跳过提交"
+            else
+              git config user.name "cnb-bot"
+              git config user.email "cnb-bot@users.noreply.cnb.cool"
+              git add data/rain-grid.json data/events.json
+              git commit -m "chore(data): 定时更新全国雨量格点与舆情事件 $(date -u +%Y-%m-%dT%H:%MZ)"
+              git push
+            fi

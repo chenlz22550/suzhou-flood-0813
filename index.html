@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>全国降雨场 × 内涝舆情研判 · 8.10–8.20</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body data-tab="verdict">
+  <div id="map"></div>
+  <div class="map-vignette"></div>
+
+  <header class="hud glass">
+    <div class="brand">
+      <div class="mark"><span></span></div>
+      <div class="brand-text">
+        <h1>全国降雨场 <em>×</em> 内涝舆情研判</h1>
+        <div class="sub">2026.08.10 — 08.20 · 格点雨量 IDW 平滑 · 舆情交叉验证</div>
+      </div>
+    </div>
+    <div class="meta">
+      <span class="pill" id="stat-n">—</span>
+      <span class="pill" id="stat-mean">—</span>
+      <span class="pill hot" id="stat-max">—</span>
+    </div>
+  </header>
+
+  <aside id="panel" class="glass">
+    <section data-tab="verdict">
+      <h2><i></i>综合结论</h2>
+      <div class="verdict" id="verdict">正在交叉格点雨量与公开舆情…</div>
+      <div class="kpis">
+        <div class="kpi">
+          <span id="kpi-peak-where">全国累计峰值</span>
+          <b id="kpi-peak">—</b>
+        </div>
+        <div class="kpi">
+          <span id="kpi-d14-where">全国单日峰值</span>
+          <b id="kpi-d14">—</b>
+        </div>
+        <div class="kpi">
+          <span id="kpi-sz-where">苏州 13–14 日峰值</span>
+          <b id="kpi-sz">—</b>
+        </div>
+        <div class="kpi">
+          <span id="kpi-event-sub">舆情关注首位</span>
+          <b id="kpi-event">—</b>
+        </div>
+      </div>
+    </section>
+
+    <section data-tab="rain">
+      <h2><i></i>雨量场 · 单日</h2>
+      <div class="day-slider-wrap">
+        <div class="day-head">
+          <span class="day-label" id="day-label">8月10日</span>
+          <button class="maxhour-btn" id="btn-maxhour" title="过程最大小时雨强">小时雨强</button>
+        </div>
+        <input type="range" id="day-slider" min="0" max="10" value="0" step="1" />
+        <div class="day-ticks">
+          <span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span>
+        </div>
+      </div>
+
+      <h2><i></i>雨量场 · 时段查询</h2>
+      <div class="range-query">
+        <select id="range-start"></select>
+        <span class="range-sep">至</span>
+        <select id="range-end"></select>
+        <button id="range-go">查询</button>
+      </div>
+      <div class="range-result" id="range-result"></div>
+
+      <div class="legend">
+        <div class="note legend-title" id="legend-title">日累计降水（IDW 平滑）</div>
+        <div class="bar" id="legend-bar"></div>
+        <div class="ticks" id="legend-ticks"></div>
+      </div>
+    </section>
+
+    <section data-tab="layers">
+      <h2><i></i>图层</h2>
+      <div class="toggles">
+        <button class="active" data-toggle="showNational">全国事件</button>
+        <button class="active" data-toggle="showRegional">江浙沪皖事件</button>
+        <button class="active" data-toggle="showEvents">苏州明细</button>
+        <button class="active" data-toggle="showHotspots">预警镇街</button>
+        <button class="active" data-toggle="showPrior">9–11 日背景点</button>
+      </div>
+      <div class="dot-legend">
+        <div><i class="swatch cyan"></i>青点：全国事件（LLM 汇总 · 待核验）</div>
+        <div><i class="swatch purple"></i>紫点：江浙沪皖积水事件 · 金点：台风登陆点</div>
+        <div><i class="swatch red"></i>红点：苏州可核验积水 / 倒灌</div>
+        <div><i class="swatch orange"></i>橙圈：红/橙预警镇 · 橙点：区域暴雨预报</div>
+        <div><i class="swatch gray"></i>灰点：9–11 日已确认重灾</div>
+        <div><i class="swatch pulse"></i>青环：舆情关注 Top 3</div>
+      </div>
+    </section>
+
+    <section data-tab="events">
+      <h2><i></i>舆情关注 Top 5</h2>
+      <p class="note">score = 0.55 邻近格点雨量（相对全国 P95 归一）+ 0.45 事件烈度。点击卡片飞抵现场。</p>
+      <div id="rank-list"></div>
+      <h2><i></i>读图注意</h2>
+      <p class="note" id="readnote">
+        雨带自东南沿海登陆后向内陆推进，10 日前后为本体主雨峰。城市内涝不等于雨量最大：
+        高水位顶托时，老城低洼 80 mm 也会倒灌。全国事件由 LLM 汇总公开舆情，存在漏报误报，
+        坐标精度到镇级，使用前请以官方通报复核。
+      </p>
+    </section>
+  </aside>
+
+  <nav id="tabs">
+    <button data-goto="verdict" class="active">研判</button>
+    <button data-goto="rain">雨量</button>
+    <button data-goto="layers">图层</button>
+    <button data-goto="events">事件</button>
+  </nav>
+
+  <footer class="glass">
+    <span>降水：Open-Meteo Historical Forecast · 边界：DataV · 舆情：DeepSeek 汇总 + 人工核验</span>
+    <span id="foot-updated">格点非自动站实况，仅供研判。</span>
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="js/idw.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
