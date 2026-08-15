@@ -83,13 +83,16 @@
       <h2><i></i>图层</h2>
       <div class="toggles">
         <button class="active" data-toggle="showNational">全国事件</button>
+        <button class="active" data-toggle="showTyphoon">台风路径</button>
         <button class="active" data-toggle="showRegional">江浙沪皖事件</button>
         <button class="active" data-toggle="showEvents">苏州明细</button>
         <button class="active" data-toggle="showHotspots">预警镇街</button>
         <button class="active" data-toggle="showPrior">9–11 日背景点</button>
       </div>
       <div class="dot-legend">
-        <div><i class="swatch cyan"></i>青点：全国事件（LLM 汇总 · 待核验）</div>
+        <div><i class="swatch red"></i>红点：全国积水 / 倒灌（LLM 汇总 · 待核验）</div>
+        <div><i class="swatch cyan"></i>青点：全国洪水山洪等 · 金点：台风登陆</div>
+        <div><i class="swatch track"></i>彩线：台风实况路径（强度分段）· 虚线：预报</div>
         <div><i class="swatch purple"></i>紫点：江浙沪皖积水事件 · 金点：台风登陆点</div>
         <div><i class="swatch red"></i>红点：苏州可核验积水 / 倒灌</div>
         <div><i class="swatch orange"></i>橙圈：红/橙预警镇 · 橙点：区域暴雨预报</div>
@@ -105,8 +108,8 @@
       <h2><i></i>读图注意</h2>
       <p class="note" id="readnote">
         雨带自东南沿海登陆后向内陆推进，10 日前后为本体主雨峰。城市内涝不等于雨量最大：
-        高水位顶托时，老城低洼 80 mm 也会倒灌。全国事件由 LLM 汇总公开舆情，存在漏报误报，
-        坐标精度到镇级，使用前请以官方通报复核。
+        高水位顶托时，老城低洼 80 mm 也会倒灌。全国积水/倒灌以红点标注（LLM 汇总舆情，存在漏报误报），
+        台风路径取自浙江水利厅实况；坐标精度到镇级，使用前请以官方通报复核。
       </p>
     </section>
   </aside>
@@ -119,7 +122,7 @@
   </nav>
 
   <footer class="glass">
-    <span>降水：Open-Meteo Historical Forecast · 边界：DataV · 舆情：DeepSeek 汇总 + 人工核验</span>
+    <span>降水：Open-Meteo Historical Forecast · 台风路径：浙江水利厅 · 边界：DataV · 舆情：DeepSeek 汇总 + 人工核验</span>
     <span id="foot-updated">格点非自动站实况，仅供研判。</span>
   </footer>
 

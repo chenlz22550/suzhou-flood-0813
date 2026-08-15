@@ -309,6 +309,12 @@ section:first-child h2:first-child { margin-top: 2px; }
 .swatch.purple { background: #c084fc; }
 .swatch.gold { background: #ffd166; }
 .swatch.cyan { background: #22d3ee; box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.18); }
+.swatch.track {
+  border-radius: 2px;
+  width: 14px; height: 3px; vertical-align: middle;
+  background: linear-gradient(90deg, #0ea5e9, #16a34a, #ca8a04, #ea580c, #b91c1c);
+  box-shadow: none;
+}
 
 /* ---------- 排行卡片 ---------- */
 .card {
@@ -345,6 +351,10 @@ section:first-child h2:first-child { margin-top: 2px; }
 .tag.orange { color: #ffe3ad; border-color: rgba(240, 180, 41, 0.45); }
 .tag.cyan { color: #b5f3ff; border-color: rgba(34, 211, 238, 0.45); }
 .tag.gray { color: #9aa8b3; }
+.tag.waterlog { color: #ffd0cb; border-color: rgba(255, 93, 77, 0.55); background: rgba(255, 93, 77, 0.12); }
+.tag.typhoon { color: #ffe9b0; border-color: rgba(255, 209, 102, 0.5); }
+.tag.warn { color: #ffe3ad; border-color: rgba(240, 180, 41, 0.45); }
+.tag.flood { color: #b5f3ff; border-color: rgba(34, 211, 238, 0.45); }
 
 .note { color: var(--muted); font-size: 11px; line-height: 1.65; }
 

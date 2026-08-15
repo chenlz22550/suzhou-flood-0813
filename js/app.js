@@ -9,6 +9,7 @@
     showEvents: true,
     showHotspots: true,
     showPrior: true,
+    showTyphoon: true,
     fields: {},
     mask: null,
     suzhouMask: null,
@@ -18,6 +19,7 @@
     layers: {},
     rain: null,
     pack: null,
+    typhoon: null,
     districts: null,
     region: null,
     china: null,
@@ -26,6 +28,17 @@
     DAYS: [],
     COLS: 320,
     ROWS: 187,
+  };
+
+  // 国标强度大致配色（路径分段）
+  const TY_COLORS = {
+    超强台风: "#7f1d1d",
+    强台风: "#b91c1c",
+    台风: "#ea580c",
+    强热带风暴: "#ca8a04",
+    热带风暴: "#16a34a",
+    热带低压: "#0ea5e9",
+    温带气旋: "#64748b",
   };
 
   // ---------- 地图 ----------
@@ -165,6 +178,35 @@
   }
   function labelWarn(w) {
     return { red: "暴雨红", orange: "暴雨橙", yellow: "暴雨黄" }[w] || w;
+  }
+  function labelSeverity(sev) {
+    return (
+      {
+        garage: "地下车库进水",
+        backflow: "倒灌",
+        knee: "及膝积水",
+        road: "道路积水",
+        alert: "预警",
+        landfall: "登陆",
+      }[sev] || sev || "—"
+    );
+  }
+  function isWaterlogLike(ev) {
+    if (ev.kind === "waterlog") return true;
+    if (ev.kind === "flood" && ["garage", "backflow", "knee", "road"].includes(ev.severity)) return true;
+    if (ev.kind === "typhoon" && ["garage", "backflow", "knee", "road"].includes(ev.severity)) return true;
+    return ["garage", "backflow", "knee", "road"].includes(ev.severity);
+  }
+  function tyColor(strong) {
+    return TY_COLORS[strong] || "#fbbf24";
+  }
+  function parseRadii(raw) {
+    if (!raw) return null;
+    const parts = String(raw).split("|").map((x) => +x || 0);
+    if (parts.every((x) => x <= 0)) return null;
+    // 东北|东南|西南|西北（km）→ Leaflet circle 用平均半径近似
+    const avg = parts.reduce((a, b) => a + b, 0) / parts.length;
+    return avg > 0 ? avg * 1000 : null;
   }
 
   // ---------- 雨量场 ----------
@@ -339,6 +381,11 @@
         </div>
         <p>
           <span class="tag cyan">${r.province} · ${r.city}</span>
+          ${
+            isWaterlogLike(r)
+              ? `<span class="tag waterlog">${labelSeverity(r.severity)}</span>`
+              : ""
+          }
           ${r.date ? r.date.slice(5).replace("-", "/") : ""}
           ${r.rainMm ? ` · 报道 ${r.rainMm} mm` : ""}
         </p>
@@ -399,12 +446,24 @@
     return "#ff5d4d";
   }
   function nationalStyle(ev) {
-    if (ev.kind === "typhoon")
+    if (ev.kind === "typhoon" && !isWaterlogLike(ev))
       return { radius: 9, color: "#ffd166", weight: 2, fillColor: "#ffd166", fillOpacity: 0.9 };
     if (ev.kind === "warning")
       return { radius: 6, color: "#ff9e5e", weight: 1.6, fillColor: "#ff9e5e", fillOpacity: 0.3 };
+    // 全国积水 / 倒灌：与苏州核验红点同色系，按烈度放大
+    if (isWaterlogLike(ev)) {
+      const hot = ev.severity === "garage" || ev.severity === "backflow";
+      return {
+        radius: hot ? 9 : ev.severity === "knee" ? 8 : 7,
+        color: "#081018",
+        weight: 1.2,
+        fillColor: "#ff5d4d",
+        fillOpacity: 0.92,
+      };
+    }
+    // 洪水 / 山洪等非积水点：青色
     return {
-      radius: ev.severity === "garage" || ev.severity === "backflow" ? 8 : 6,
+      radius: 6,
       color: "#04121c",
       weight: 1,
       fillColor: "#22d3ee",
@@ -415,10 +474,17 @@
     const cell = nearest(ev.lat, ev.lon);
     const i = dateIdx(ev.date);
     const dayTxt = i >= 0 && cell ? `${dayLabel(i)} 邻近格点 ${fmt(daySum(cell, i))} mm · ` : "";
+    const tag = isWaterlogLike(ev)
+      ? `<span class="tag waterlog">${labelSeverity(ev.severity)}</span>`
+      : ev.kind === "typhoon"
+        ? `<span class="tag typhoon">台风</span>`
+        : ev.kind === "warning"
+          ? `<span class="tag warn">预警</span>`
+          : `<span class="tag flood">洪水/山洪</span>`;
     return `
       <div class="popup">
         <h3>${ev.name}</h3>
-        <div class="dim">${ev.province} · ${ev.city} · ${ev.date || "日期不详"}</div>
+        <div class="dim">${ev.province} · ${ev.city} · ${ev.date || "日期不详"} · ${tag}</div>
         ${ev.rainMm ? `<div>报道雨量 <b>${ev.rainMm} mm</b></div>` : ""}
         <p>${ev.desc || ""}</p>
         <div class="dim">${dayTxt}全程 ${cell ? fmt(sum(cell.d), 0) : "—"} mm · 来源：${ev.source || "—"}</div>
@@ -432,7 +498,7 @@
       delete state.layers[k];
     }
 
-    // 全国事件（LLM）
+    // 全国事件（LLM）——积水/倒灌用红点全国标注
     const nat = L.layerGroup();
     if (state.showNational) {
       for (const ev of state.pack.nationalEvents || []) {
@@ -461,7 +527,7 @@
           .bindPopup(`
             <div class="popup">
               <h3>${ev.name}</h3>
-              <div class="dim">${ev.region} · ${ev.city} · ${winLabel}</div>
+              <div class="dim">${ev.region} · ${ev.city} · ${winLabel}${ev.severity ? " · " + labelSeverity(ev.severity) : ""}</div>
               <div><b>${ev.depth}</b></div>
               <p>${ev.desc}</p>
               <div class="dim">邻近格点 ${winLabel} ${fmt(rangeSum(cell, win[0], win[1]))} mm / 全程 ${fmt(rangeSum(cell, 0, 10))} mm</div>
@@ -488,7 +554,7 @@
         .bindPopup(`
           <div class="popup">
             <h3>${ev.name}</h3>
-            <div class="dim">${ev.district} · ${ev.town} · ${ev.period === "prior" ? "9–11日背景" : "本轮/持续"}</div>
+            <div class="dim">${ev.district} · ${ev.town} · ${ev.period === "prior" ? "9–11日背景" : "本轮/持续"} · ${labelSeverity(ev.severity)}</div>
             <div><b>${ev.depth}</b></div>
             <p>${ev.desc}</p>
             <div class="dim">邻近格点 13–14日 ${fmt(rangeSum(cell, 3, 4))} mm / 全程 ${fmt(rangeSum(cell, 0, 10))} mm</div>
@@ -534,6 +600,101 @@
     }
     pulses.addTo(map);
     state.layers.pulses = pulses;
+
+    drawTyphoonTracks();
+  }
+
+  function drawTyphoonTracks() {
+    const group = L.layerGroup();
+    if (state.showTyphoon && state.typhoon && Array.isArray(state.typhoon.storms)) {
+      for (const storm of state.typhoon.storms) {
+        const track = storm.track || [];
+        for (let i = 1; i < track.length; i++) {
+          const a = track[i - 1];
+          const b = track[i];
+          L.polyline(
+            [
+              [a.lat, a.lng],
+              [b.lat, b.lng],
+            ],
+            {
+              color: tyColor(b.strong || a.strong),
+              weight: storm.isactive ? 3.2 : 2.4,
+              opacity: 0.88,
+              lineCap: "round",
+            }
+          ).addTo(group);
+        }
+        // 路径点（抽稀，避免太密）
+        const step = Math.max(1, Math.floor(track.length / 40));
+        for (let i = 0; i < track.length; i += step) {
+          const p = track[i];
+          const isLast = i + step >= track.length;
+          L.circleMarker([p.lat, p.lng], {
+            radius: isLast ? 7 : 3.5,
+            color: "#081018",
+            weight: 1,
+            fillColor: tyColor(p.strong),
+            fillOpacity: 0.95,
+          })
+            .bindPopup(
+              `<div class="popup"><h3>${storm.name}${storm.enname ? " · " + storm.enname : ""}</h3>
+              <div class="dim">${p.time} · ${p.strong || "—"} · ${p.power ? p.power + " 级" : ""}</div>
+              <div>中心风速 <b>${p.speed || "—"} m/s</b> · 气压 ${p.pressure || "—"} hPa</div>
+              <div class="dim">${storm.isactive ? "活跃台风" : "已停编"} · ${storm.tfid}</div></div>`
+            )
+            .addTo(group);
+        }
+        // 登陆点
+        for (const Lnd of storm.land || []) {
+          L.circleMarker([Lnd.lat, Lnd.lng], {
+            radius: 9,
+            color: "#ffd166",
+            weight: 2,
+            fillColor: "#ffd166",
+            fillOpacity: 0.95,
+          })
+            .bindPopup(
+              `<div class="popup"><h3>${storm.name} · 登陆</h3>
+              <div class="dim">${Lnd.time}</div>
+              <p>${Lnd.info || Lnd.address || ""}</p></div>`
+            )
+            .addTo(group);
+        }
+        // 活跃台风：预报虚线 + 风圈
+        if (storm.isactive) {
+          const fc = storm.forecast || [];
+          if (fc.length >= 2) {
+            L.polyline(
+              fc.map((p) => [p.lat, p.lng]),
+              { color: "#fbbf24", weight: 2, opacity: 0.75, dashArray: "6 5" }
+            ).addTo(group);
+          }
+          const last = track[track.length - 1];
+          if (last) {
+            for (const [key, color, op] of [
+              ["radius7", "rgba(34,211,238,0.55)", 0.08],
+              ["radius10", "rgba(251,191,36,0.7)", 0.1],
+              ["radius12", "rgba(251,77,109,0.75)", 0.12],
+            ]) {
+              const r = parseRadii(last[key]);
+              if (r) {
+                L.circle([last.lat, last.lng], {
+                  radius: r,
+                  color,
+                  weight: 1.2,
+                  fillColor: color,
+                  fillOpacity: op,
+                  interactive: false,
+                }).addTo(group);
+              }
+            }
+          }
+        }
+      }
+    }
+    group.addTo(map);
+    state.layers.typhoon = group;
   }
 
   function drawBoundaries() {
@@ -558,14 +719,18 @@
   }
 
   async function boot() {
-    const [rain, pack, districts, china] = await Promise.all([
+    const [rain, pack, districts, china, typhoon] = await Promise.all([
       fetch("data/rain-grid.json").then((r) => r.json()),
       fetch("data/events.json").then((r) => r.json()),
       fetch("data/districts.geojson").then((r) => r.json()),
       fetch("data/china.geojson").then((r) => r.json()),
+      fetch("data/typhoon-tracks.json")
+        .then((r) => (r.ok ? r.json() : { storms: [] }))
+        .catch(() => ({ storms: [] })),
     ]);
     state.rain = rain;
     state.pack = pack;
+    state.typhoon = typhoon;
     state.districts = districts;
     state.china = china;
     state.BBOX = rain.bbox;
@@ -590,10 +755,15 @@
     $("stat-mean").textContent =
       "全国均 " + fmt(cnTotals.reduce((a, b) => a + b, 0) / cnTotals.length, 0) + " mm";
     $("stat-max").textContent = "峰值 " + fmt(Math.max(...cnTotals), 0) + " mm";
+    const footBits = [];
     if (pack.nationalUpdated) {
-      $("foot-updated").textContent =
-        `舆情更新 ${pack.nationalUpdated.slice(0, 16).replace("T", " ")}（${pack.nationalModel || "LLM"}） · 格点非自动站实况，仅供研判。`;
+      footBits.push(`舆情 ${pack.nationalUpdated.slice(0, 16).replace("T", " ")}`);
     }
+    if (typhoon && typhoon.updated) {
+      footBits.push(`台风路径 ${typhoon.updated.slice(0, 16).replace("T", " ")}`);
+    }
+    $("foot-updated").textContent =
+      (footBits.length ? footBits.join(" · ") + " · " : "") + "格点非自动站实况，仅供研判。";
 
     // 单日滑条刻度
     const ticks = document.querySelector(".day-ticks");
